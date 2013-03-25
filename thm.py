@@ -2,6 +2,8 @@
 cutoff = 200
 
 from sys import argv
+import heapq # for the priority queue we use to sort the knowledge base
+from operator import itemgetter # for the re-sort we use while dumping out the knowledge base at the end
 
 class Literal:
   """A literal is a an atom or a negated atom"""
@@ -32,14 +34,14 @@ def resolve(a,b):
   NewClause is implemented as a frozenset of literals.
   
   """
-  for lit1 in a:
-    for lit2 in b:
-      if lit1.name == lit2.name and lit1.modifier != lit2.modifier:
+  for m in a:
+    for n in b:
+      if m.name == n.name and m.modifier != n.modifier:
         # We have found a pair of negated literals, i.e. L ~L
         c = set(a)
         d = set(b)
-        c.remove(lit1)
-        d.remove(lit2)
+        c.remove(m)
+        d.remove(n)
         # Union the clauses, but after removing the negated pair
         return (True, frozenset(c.union(d)))
   return (False, None)
@@ -49,19 +51,27 @@ def nextStatement(states):
   If the resolution is novel, add it to the kb
   
   """
-  for i, state1 in enumerate(states):
-    for j, state2 in enumerate(states):
-      if i != j:
-        k = resolve(state1[0], state2[0])
-        if k[0]:
-          if not ( k[1] in {x[0] for x in states} ):
-            states.append([k[1], set([i,j])])
-            return k[1]
+  global t
+  for l1, c1, p1, t1 in states:
+    for l2, c2, p2, t2 in states:
+      if t1 != t2:
+        success, clause = resolve(c1, c2)
+        if success:
+          if not (clause in map(itemgetter(1), states)):
+            t += 1
+            heapq.heappush(states, (len(clause), clause, [t1,t2], t))
+            return clause
+  # We got stuck
+  return False
           
 def dump(states):
   """Print out the kb in a nicer format"""
-  for i, state in enumerate(states):
-    print "%s.  %s  {%s}" % (i+1, ' '.join({(x.name if x.modifier else '~' + x.name) for x in state[0]}) if state[0] else False, ','.join(str(s+1) for s in state[1]))
+  for l, clause, parents, t in sorted(states, key = itemgetter(3)):
+    print "%s.  %s  {%s}" % (t, # print the theorem number, but using 1-based indexing
+      ' '.join(
+        {(x.name if x.modifier else '~' + x.name) for x in clause} # write out an abbreviated string representing the clause
+        ) if clause else False,
+      ','.join(map(str,parents))) # again, use 1-based indexing
   
 usage = "usage: thm infile.in"
 def end(message=usage):
@@ -77,12 +87,17 @@ if not infile.endswith('.in'):
   end()
     
 states = []
-    
+t = 0
 # read the input file
 with open(infile) as infile:
   for line in infile:
-    # parse the line as a set of Literals, then append to the kb
-    states.append([frozenset({Literal(x) for x in line.split()}),set()])
+    # increment the time parameter
+    t += 1
+    # parse the line as a set of Literals
+    literals = line.split()
+    # then append to the kb, which is actually a heap sorted on clause length
+    heapq.heappush(states, (len(literals), frozenset({Literal(x) for x in literals}), [], t))
+    # the tuple values are: 1. length of clause 2. set of literals 3. parent clauses that we were derived from
 
 for counter in range(cutoff):
   # If we generate false, then break
