@@ -1,0 +1,31 @@
+a => b is the same as ~a v b
+
+~(NoLeak ^ LowTemp) v ReactorUnitSafe
+~(NoLeakH1 ^ NoLeakH2) v NoLeak
+~okH1 v NoLeakH1
+~(~okH1 ^ ~V1) v NoLeakH1
+~okH2 v NoLeakH2
+~(~okH2 ^ ~V2) v NoLeakH2
+~(l ^ V1 ^ V2) v LowTemp
+~(~l ^ V1) v LowTemp
+~(~l ^ V2) v LowTemp
+
+reduce:
+
+~NoLeak v ~LowTemp v ReactorUnitSafe
+~NoLeakH1 v ~NoLeakH2 v NoLeak
+~okH1 v NoLeakH1
+okH1 v V1 v NoLeakH1
+~okH2 v NoLeakH2
+okH2 v V2 v NoLeakH2
+~l v ~V1 v ~V2 v LowTemp
+l v ~V1 v LowTemp
+l v ~V2 v LowTemp
+
+assumptions:
+~l
+~okH2
+okH1
+V1
+~V2
+

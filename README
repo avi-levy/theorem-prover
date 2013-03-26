@@ -1,0 +1,7 @@
+Developed on Ubuntu.
+Steps to run:
+First, ensure that "thm.py" is executable:
+$ chmod a+x thm.py
+Then, run as follows:
+$ ./thm.py infile.in > outfile.out
+where infile.in is the name of the input file and outfile is the name of the output file

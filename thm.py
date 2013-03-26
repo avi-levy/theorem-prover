@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-cutoff = 200
+cutoff = 500
 
 from sys import argv
 import heapq # for the priority queue we use to sort the knowledge base
@@ -59,21 +59,26 @@ def nextStatement(states):
         if success:
           if not (clause in map(itemgetter(1), states)):
             t += 1
-            heapq.heappush(states, (len(clause), clause, (t1,t2), t))
-            return clause
+            entry = (len(clause), clause, (t1,t2), t)
+            heapq.heappush(states, entry)
+            return entry
   # We got stuck
   return False
 
 def extractProofTree(states, state, visitedStates):
   """Recursively extract a proof tree by visiting states with unvisited parents"""
+  if not state:
+    print "Failure; no contradiction reached, and no more implications are possible"
+    return visitedStates
   if state in visitedStates:
     return visitedStates
   visitedStates.add(state)
   l, c, parents, t = state
   if not parents:
     return visitedStates
-  visitedStates = extractProofTree(states, states[parents[0]], visitedStates)
-  visitedStates = extractProofTree(states, states[parents[1]], visitedStates)
+  # print "\t\tVisiting parents: %s %s" % (parents[0], parents[1])
+  visitedStates = extractProofTree(states, states[parents[0]-1], visitedStates)
+  visitedStates = extractProofTree(states, states[parents[1]-1], visitedStates)
   return visitedStates
     
           
@@ -86,15 +91,7 @@ def dump(states):
         ) if clause else False,
       ','.join(map(str,list(parents)))) # again, use 1-based indexing
 
-def moddump(substates, states):
-  """Print out the kb in a nicer format"""
-  for l, clause, parents, t in sorted(substates, key = itemgetter(3)):
-    print "%s.  %s  {%s}" % (t, # print the theorem number, but using 1-based indexing
-      ' '.join(
-        {(x.name if x.modifier else '~' + x.name) for x in clause} # write out an abbreviated string representing the clause
-        ) if clause else False,
-      ','.join(map(str,list(parents)))) # again, use 1-based indexing
-  
+ 
 usage = "usage: thm infile.in"
 def end(message=usage):
   print message
@@ -121,12 +118,14 @@ with open(infile) as infile:
     heapq.heappush(states, (len(literals), frozenset({Literal(x) for x in literals}), (), t))
     # the tuple values are: 1. length of clause 2. set of literals 3. parent clauses that we were derived from
 
-cur = None
 for counter in range(cutoff):
   # If we generate false, then break
-  last = cur
   cur = nextStatement(states)
-  if not cur:
+  if (not cur) or (not cur[1]):
     break
-#dump([last])
-moddump(extractProofTree(states, last, set()),states)
+# To list all states:    
+# dump(states)
+
+# To list just the relevant states for contradiction:
+dump(extractProofTree(sorted(states, key = itemgetter(3)), cur, set()))
+print "Size of final clause set:  %s" % len(states)
