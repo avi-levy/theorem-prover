@@ -59,10 +59,23 @@ def nextStatement(states):
         if success:
           if not (clause in map(itemgetter(1), states)):
             t += 1
-            heapq.heappush(states, (len(clause), clause, [t1,t2], t))
+            heapq.heappush(states, (len(clause), clause, (t1,t2), t))
             return clause
   # We got stuck
   return False
+
+def extractProofTree(states, state, visitedStates):
+  """Recursively extract a proof tree by visiting states with unvisited parents"""
+  if state in visitedStates:
+    return visitedStates
+  visitedStates.add(state)
+  l, c, parents, t = state
+  if not parents:
+    return visitedStates
+  visitedStates = extractProofTree(states, states[parents[0]], visitedStates)
+  visitedStates = extractProofTree(states, states[parents[1]], visitedStates)
+  return visitedStates
+    
           
 def dump(states):
   """Print out the kb in a nicer format"""
@@ -71,7 +84,16 @@ def dump(states):
       ' '.join(
         {(x.name if x.modifier else '~' + x.name) for x in clause} # write out an abbreviated string representing the clause
         ) if clause else False,
-      ','.join(map(str,parents))) # again, use 1-based indexing
+      ','.join(map(str,list(parents)))) # again, use 1-based indexing
+
+def moddump(substates, states):
+  """Print out the kb in a nicer format"""
+  for l, clause, parents, t in sorted(substates, key = itemgetter(3)):
+    print "%s.  %s  {%s}" % (t, # print the theorem number, but using 1-based indexing
+      ' '.join(
+        {(x.name if x.modifier else '~' + x.name) for x in clause} # write out an abbreviated string representing the clause
+        ) if clause else False,
+      ','.join(map(str,list(parents)))) # again, use 1-based indexing
   
 usage = "usage: thm infile.in"
 def end(message=usage):
@@ -96,11 +118,15 @@ with open(infile) as infile:
     # parse the line as a set of Literals
     literals = line.split()
     # then append to the kb, which is actually a heap sorted on clause length
-    heapq.heappush(states, (len(literals), frozenset({Literal(x) for x in literals}), [], t))
+    heapq.heappush(states, (len(literals), frozenset({Literal(x) for x in literals}), (), t))
     # the tuple values are: 1. length of clause 2. set of literals 3. parent clauses that we were derived from
 
+cur = None
 for counter in range(cutoff):
   # If we generate false, then break
-  if not nextStatement(states):
+  last = cur
+  cur = nextStatement(states)
+  if not cur:
     break
-dump(states)
+#dump([last])
+moddump(extractProofTree(states, last, set()),states)
